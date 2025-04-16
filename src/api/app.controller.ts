@@ -20,9 +20,9 @@ export class AppController {
       await sheetsService.init();
       const spreadsheetId: string = "1R_VAbXIns8iniYFHs1xv0TmOTOzEl3firGC5mBk1lG4"
       
-      let stat: IStatistics[] = await this.appService.getStatisticsData();  
+      let statisticsData: IStatistics[] = await this.appService.getStatisticsData();  
       const spreadsheetsForUpdate: any = {}
-      for (let item of stat){
+      for (let item of statisticsData){
         const spreadsheetName: string = item.ObjectName.replace(/[0-9]/g, '');
         if (!spreadsheetsForUpdate[spreadsheetName]) {
           spreadsheetsForUpdate[spreadsheetName] = {
@@ -48,7 +48,6 @@ export class AppController {
           //TODO логика вставки недостоющей строки статистики
           return
         }
-        console.log(rows)
         const dates = await sheetsService.getSpreadsheetData(spreadsheetId, `${key}!F${baseRow+1}:${baseRow+1}`);
         if (dates && dates[0]) {
           dates[0].push('')
@@ -56,7 +55,6 @@ export class AppController {
         if (dates){
           datesMap = dates.map((row, rowIndex) => {
             return row.map((cell, colIndex) => {
-              
                 const colLetter = getColumnLetter(colIndex + 5);
                 let date = parseDateString(cell);
                 let isPlan = false
@@ -66,17 +64,15 @@ export class AppController {
                   isPlan = true
                   isFact = false
                 }
-
                 return { col: colLetter, month: date?.month, year: date?.year, plan: isPlan, fact: isFact }; 
             })
           }).flat(); 
-        
         }
       }
 
-      const values: any[] = []
-      for (let key in spreadsheetsForUpdate){
-        const rows = spreadsheetsForUpdate[key]
+      const batchValues: any[] = []
+      for (let listName in spreadsheetsForUpdate){
+        const rows = spreadsheetsForUpdate[listName]
         for (let rKey in rows){
           if (rKey !== 'rows')
             for (let data of rows[rKey].rowsUpdate){
@@ -88,8 +84,8 @@ export class AppController {
               const dateMapsFactItem: any = datesMap.find(item => item.month === month && item.year === year && item.fact === true)
               const spreadsheetRow: number = rows.rows[data.ObjectName]
               if (dateMapsPlanItem && dateMapsFactItem && spreadsheetRow){
-                const range = `${key}!${dateMapsFactItem.col}${spreadsheetRow}:${dateMapsPlanItem.col}${spreadsheetRow}`
-                values.push({
+                const range: string = `${listName}!${dateMapsFactItem.col}${spreadsheetRow}:${dateMapsPlanItem.col}${spreadsheetRow}`
+                batchValues.push({
                   range: range,
                   values:  [[fact || 0, plan || 0]]
                 })
@@ -100,7 +96,7 @@ export class AppController {
 
       }
 
-      await sheetsService.batchUpdateValues(spreadsheetId, values)
+      await sheetsService.batchUpdateValues(spreadsheetId, batchValues)
     }
 
   }
